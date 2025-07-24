@@ -3,12 +3,10 @@ set -xe
 
 echo "Running install.sh script..."
 
-# Ensure HTTPD is running (if using Apache to serve static content)
-sudo yum install -y httpd
-sudo systemctl enable httpd
-sudo systemctl restart httpd
+# Example: Install dependencies (if applicable)
+# sudo yum install -y nodejs npm  # for Node.js apps
 
-# Ensure permissions are correct (optional)
-sudo chmod -R 755 /var/www/html
+# Set permissions for deployed app
+sudo chmod -R 755 /home/ec2-user/myapp
 
-echo "Deployment finished."
+echo "Install step complete."
