@@ -11,12 +11,16 @@ func TestTerraformPipeline(t *testing.T) {
   t.Parallel()
 
   tf := &terraform.Options{
-    TerraformDir: "../terraform", // Adjust path as per your directory
+    TerraformDir: "../terraform", // Adjust if your Terraform code is elsewhere
+    Vars: map[string]interface{}{
+      "codepipeline_name":         "my-devops-project-pipeline",
+      "codestar_connection_arn":   "arn:aws:codeconnections:eu-north-1:932117065109:connection/53a86147-18c6-4a50-b31e-4b3aecd20069",
+    },
   }
 
-  defer terraform.Destroy(t, tf)             // Cleanup resources after test
-  terraform.InitAndApply(t, tf)             // Run terraform init + apply
+  defer terraform.Destroy(t, tf)         // Clean up resources
+  terraform.InitAndApply(t, tf)         // Run Terraform commands
 
-  pipelineName := terraform.Output(t, tf, "codepipeline_name") // Replace with actual output variable name
-  assert.NotEmpty(t, pipelineName)
+  pipelineName := terraform.Output(t, tf, "codepipeline_name")
+  assert.Equal(t, "my-devops-project-pipeline", pipelineName)
 }
