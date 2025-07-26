@@ -1,4 +1,4 @@
-# DevOps-Master-Project
+# DevOps-Project
 
 AWS Cloud Assignment: CodePipeline using Terraform & DevSecOps with GitHub Actions and
 Kubernetes Sealed Secrets
@@ -58,7 +58,7 @@ This repository provisions a full AWS CI/CD pipeline using **Terraform** for inf
 ```markdown
 ## 🧱 Project Structure
 
-DevSecOps-Masters-Project/
+DevSecOps-Project/
 ├── terraform/
 │   ├── main.tf                # Main Terraform configuration
 │   ├── variables.tf           # Input variables
@@ -200,7 +200,7 @@ This part of the project integrates **DevSecOps practices** into the CI/CD workf
 ```markdown
 ### 📂 Project Structure
 
-DevSecOps-Masters-Project/
+DevSecOps-Project/
 ├── .github/workflows/
 │   └── devsecops-pipeline.yml       # GitHub Actions CI/CD
 ├── terraform/                       # Terraform IaC
@@ -327,7 +327,7 @@ Here’s a clean **DevSecOps CI/CD Workflow Flowchart** for **Task 2**, covering
 ### 📊 **Final DevSecOps Workflow Diagram**
 
 ```plaintext
-DevSecOps-Masters-Project/
+DevSecOps-Project/
 
 ├── .github/
 
@@ -384,9 +384,9 @@ DevSecOps-Masters-Project/
 
 ## 🙋‍♂️ Author
 
-**Ayush Dash**
+**Tanisha Panda**
 
-* 🔗 [LinkedIn](https://www.linkedin.com/in/ayush-dash-214249253)
+* 🔗 [LinkedIn](linkedin.com/in/tanisha-panda-b449ab172)
 
 ---
 
