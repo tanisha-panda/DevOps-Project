@@ -2,9 +2,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-# --------------------
-# S3 Artifact Bucket
-# --------------------
 resource "aws_s3_bucket" "artifact_bucket" {
   bucket        = var.bucket_name
   force_destroy = true
@@ -17,34 +14,14 @@ resource "aws_s3_bucket_versioning" "artifact_versioning" {
   }
 }
 
-# --------------------
-# IAM Roles and Policies
-# --------------------
-
-# CodePipeline Role
-data "aws_iam_policy_document" "codepipeline_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["codepipeline.amazonaws.com"]
-    }
-  }
-}
-
 resource "aws_iam_role" "codepipeline_role" {
-  name               = "${var.project_name}-codepipeline-role"
-  assume_role_policy = data.aws_iam_policy_document.codepipeline_assume.json
-}
+  name = "codepipeline-role"
 
-resource "aws_iam_role_policy" "codepipeline_inline_policy" {
-  name = "codepipeline-inline-policy"
-  role = aws_iam_role.codepipeline_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17",
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
     Statement = [
       {
+<<<<<<< HEAD
         Effect = "Allow",
         Action = [
           "codepipeline:*",
@@ -54,55 +31,68 @@ resource "aws_iam_role_policy" "codepipeline_inline_policy" {
           "iam:PassRole"
         ],
         Resource = "*"
+=======
+        Action = "sts:AssumeRole"
+        Principal = {
+          Service = "codepipeline.amazonaws.com"
+        }
+        Effect = "Allow"
+>>>>>>> eb859d14393f7df008d7e5b309bb7dfe997b3811
       }
     ]
   })
 }
 
-
-
-# CodeBuild Role
-data "aws_iam_policy_document" "codebuild_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["codebuild.amazonaws.com"]
-    }
-  }
+resource "aws_iam_role_policy_attachment" "codepipeline_policy" {
+  role       = aws_iam_role.codepipeline_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSCodePipelineFullAccess"
 }
 
 resource "aws_iam_role" "codebuild_role" {
-  name               = "${var.project_name}-codebuild-role"
-  assume_role_policy = data.aws_iam_policy_document.codebuild_assume.json
+  name = "codebuild-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Principal = {
+          Service = "codebuild.amazonaws.com"
+        }
+        Effect = "Allow"
+      }
+    ]
+  })
 }
 
-resource "aws_iam_role_policy_attachment" "codebuild_policy_attach" {
+resource "aws_iam_role_policy_attachment" "codebuild_policy" {
   role       = aws_iam_role.codebuild_role.name
   policy_arn = "arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess"
 }
 
-# CodeDeploy Role
-data "aws_iam_policy_document" "codedeploy_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["codedeploy.amazonaws.com"]
-    }
-  }
-}
-
 resource "aws_iam_role" "codedeploy_role" {
-  name               = "${var.project_name}-codedeploy-role"
-  assume_role_policy = data.aws_iam_policy_document.codedeploy_assume.json
+  name = "codedeploy-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Principal = {
+          Service = "codedeploy.amazonaws.com"
+        }
+        Effect = "Allow"
+      }
+    ]
+  })
 }
 
-resource "aws_iam_role_policy_attachment" "codedeploy_policy_attach" {
+resource "aws_iam_role_policy_attachment" "codedeploy_policy" {
   role       = aws_iam_role.codedeploy_role.name
   policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployFullAccess"
 }
 
+<<<<<<< HEAD
 # --------------------
 # EC2 Instance for Deployment
 # --------------------
@@ -169,39 +159,69 @@ resource "aws_codedeploy_deployment_group" "devsecops_group" {
 resource "aws_codebuild_project" "devsecops_build" {
   name          = "${var.project_name}-build"
   description   = "Build project for ${var.project_name}"
+=======
+resource "aws_codebuild_project" "project" {
+  name          = "devops-project"
+>>>>>>> eb859d14393f7df008d7e5b309bb7dfe997b3811
   service_role  = aws_iam_role.codebuild_role.arn
-  build_timeout = 20
+  description   = "Build project for DevOps pipeline"
 
   artifacts {
     type = "CODEPIPELINE"
   }
 
   environment {
+<<<<<<< HEAD
     compute_type    = "BUILD_GENERAL1_SMALL"
     image           = var.codebuild_image
     type            = "LINUX_CONTAINER"
     privileged_mode = true
+=======
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = "aws/codebuild/standard:5.0"
+    type                        = "LINUX_CONTAINER"
+    privileged_mode             = true
+>>>>>>> eb859d14393f7df008d7e5b309bb7dfe997b3811
   }
 
   source {
-    type      = "CODEPIPELINE"
-    buildspec = "buildspec.yml"
+    type            = "CODEPIPELINE"
+    buildspec       = "buildspec.yml"
+  }
+}
+
+resource "aws_codedeploy_app" "app" {
+  name = "devops-app"
+  compute_platform = "Server"
+}
+
+resource "aws_codedeploy_deployment_group" "deployment_group" {
+  app_name               = aws_codedeploy_app.app.name
+  deployment_group_name  = "devops-deployment-group"
+  service_role_arn       = aws_iam_role.codedeploy_role.arn
+
+  deployment_style {
+    deployment_option = "WITH_REPLACEMENT"
+    deployment_type   = "IN_PLACE"
   }
 
-  logs_config {
-    cloudwatch_logs {
-      status = "ENABLED"
+  auto_rollback_configuration {
+    enabled = true
+    events  = ["DEPLOYMENT_FAILURE"]
+  }
+
+  ec2_tag_set {
+    ec2_tag_filter {
+      key   = "Name"
+      type  = "KEY_AND_VALUE"
+      value = var.instance_tag_value
     }
   }
 }
 
-# --------------------
-# CodePipeline
-# --------------------
-resource "aws_codepipeline" "devsecops_pipeline" {
-  name     = "${var.project_name}-pipeline"
+resource "aws_codepipeline" "pipeline" {
+  name     = "devops-pipeline"
   role_arn = aws_iam_role.codepipeline_role.arn
-
   artifact_store {
     location = aws_s3_bucket.artifact_bucket.bucket
     type     = "S3"
@@ -209,23 +229,27 @@ resource "aws_codepipeline" "devsecops_pipeline" {
 
   stage {
     name = "Source"
+
     action {
       name             = "Source"
       category         = "Source"
-      owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
+      owner            = "ThirdParty"
+      provider         = "GitHub"
       version          = "1"
       output_artifacts = ["source_output"]
+
       configuration = {
-        ConnectionArn    = var.codestar_connection_arn
-        FullRepositoryId = "${var.github_owner}/${var.github_repo}"
-        BranchName       = var.github_branch
+        Owner      = var.github_owner
+        Repo       = var.github_repo
+        Branch     = var.github_branch
+        OAuthToken = var.github_oauth_token
       }
     }
   }
 
   stage {
     name = "Build"
+
     action {
       name             = "Build"
       category         = "Build"
@@ -234,14 +258,16 @@ resource "aws_codepipeline" "devsecops_pipeline" {
       input_artifacts  = ["source_output"]
       output_artifacts = ["build_output"]
       version          = "1"
+
       configuration = {
-        ProjectName = aws_codebuild_project.devsecops_build.name
+        ProjectName = aws_codebuild_project.project.name
       }
     }
   }
 
   stage {
     name = "Deploy"
+
     action {
       name            = "Deploy"
       category        = "Deploy"
@@ -249,6 +275,7 @@ resource "aws_codepipeline" "devsecops_pipeline" {
       provider        = "CodeDeploy"
       input_artifacts = ["build_output"]
       version         = "1"
+<<<<<<< HEAD
       configuration = {
         ApplicationName     = aws_codedeploy_app.devsecops_app.name
         DeploymentGroupName = aws_codedeploy_deployment_group.devsecops_group.deployment_group_name
@@ -510,6 +537,12 @@ resource "aws_codepipeline" "devsecops_pipeline" {
       configuration = {
         ApplicationName     = aws_codedeploy_app.devsecops_app.name
         DeploymentGroupName = aws_codedeploy_deployment_group.devsecops_group.deployment_group_name
+=======
+
+      configuration = {
+        ApplicationName     = aws_codedeploy_app.app.name
+        DeploymentGroupName = aws_codedeploy_deployment_group.deployment_group.deployment_group_name
+>>>>>>> eb859d14393f7df008d7e5b309bb7dfe997b3811
       }
     }
   }
