@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: myapp
-          image: ayushdash1302/devops-app:latest
+          image: tanisha-panda/devops-app:latest
           ports:
             - containerPort: 3000
           env:
