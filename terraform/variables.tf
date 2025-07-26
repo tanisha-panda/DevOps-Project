@@ -1,13 +1,11 @@
 variable "aws_region" {
   description = "AWS region to deploy resources"
   type        = string
-  default     = "eu-north-1"
 }
 
 variable "project_name" {
   description = "Project name prefix"
   type        = string
-  default     = "my-devops-project"
 }
 
 variable "bucket_name" {
@@ -43,7 +41,6 @@ variable "github_repo" {
 variable "github_branch" {
   description = "GitHub branch to track"
   type        = string
-  default     = "main"
 }
 
 variable "github_token" {
@@ -54,13 +51,6 @@ variable "github_token" {
 variable "codestar_connection_arn" {
   description = "ARN of the CodeStar GitHub connection"
   type        = string
-  default     = "arn:aws:codeconnections:eu-north-1:932117065109:connection/53a86147-18c6-4a50-b31e-4b3aecd20069"
-}
-
-variable "codepipeline_name" {
-  description = "Name of the CodePipeline"
-  type        = string
-  default     = "my-devops-project-pipeline"
 }
 
 variable "instance_tag_key" {
@@ -77,6 +67,5 @@ variable "instance_tag_value" {
 
 variable "codebuild_image" {
   description = "Docker image for CodeBuild environment"
-  type        = string
   default     = "aws/codebuild/standard:6.0"
 }

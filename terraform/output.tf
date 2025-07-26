@@ -5,22 +5,23 @@ output "artifact_bucket" {
 
 output "codepipeline_name" {
   description = "Name of the CodePipeline"
-  value       = aws_codepipeline.my-devops-project-pipeline.name
+  value       = aws_codepipeline.devsecops_pipeline.name
 }
+
 
 output "codebuild_project" {
   description = "CodeBuild project name"
-  value       = aws_codebuild_project.my-devops-project-build.name
+  value       = aws_codebuild_project.devsecops_build.name
 }
 
 output "codedeploy_application" {
   description = "CodeDeploy application name"
-  value       = aws_codedeploy_app.my-devops-project-app.name
+  value       = aws_codedeploy_app.devsecops_app.name
 }
 
 output "codedeploy_deployment_group" {
   description = "CodeDeploy deployment group name"
-  value       = aws_codedeploy_deployment_group.my-devops-project-group.deployment_group_name
+  value       = aws_codedeploy_deployment_group.devsecops_group.deployment_group_name
 }
 
 output "ec2_instance_public_ip" {
