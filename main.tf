@@ -2,7 +2,9 @@ provider "aws" {
   region = var.aws_region
 }
 
+# ------------------------------
 # S3 bucket to store artifacts
+# ------------------------------
 resource "aws_s3_bucket" "artifact_bucket" {
   bucket        = var.bucket_name
   force_destroy = true
@@ -10,13 +12,15 @@ resource "aws_s3_bucket" "artifact_bucket" {
 
 resource "aws_s3_bucket_versioning" "versioning" {
   bucket = aws_s3_bucket.artifact_bucket.id
+
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-# --- Start: Network Resources (VPC, Subnet, Internet Gateway, Route Table) ---
-
+# ------------------------------
+# VPC, Subnet, IGW, Route Table
+# ------------------------------
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
@@ -64,11 +68,12 @@ resource "aws_route_table_association" "public_rt_association" {
   route_table_id = aws_route_table.public_rt.id
 }
 
-# --- End: Network Resources ---
-
-# IAM role for CodeBuild
+# ------------------------------
+# IAM for CodeBuild
+# ------------------------------
 resource "aws_iam_role" "codebuild_role" {
   name = "${var.project_name}-codebuild-role"
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
@@ -82,21 +87,23 @@ resource "aws_iam_role" "codebuild_role" {
 resource "aws_iam_role_policy" "codebuild_policy" {
   name = "${var.project_name}-codebuild-policy"
   role = aws_iam_role.codebuild_role.id
+
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = ["logs:*", "s3:*"],
-        Resource = "*"
-      }
-    ]
+    Statement = [{
+      Effect = "Allow",
+      Action = ["logs:*", "s3:*"],
+      Resource = "*"
+    }]
   })
 }
 
-# IAM role for CodePipeline + CodeDeploy
+# ------------------------------
+# IAM for CodePipeline & CodeDeploy
+# ------------------------------
 resource "aws_iam_role" "codepipeline_role" {
   name = "${var.project_name}-codepipeline-role"
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
@@ -112,16 +119,22 @@ resource "aws_iam_role" "codepipeline_role" {
 resource "aws_iam_role_policy" "codepipeline_policy" {
   name = "${var.project_name}-codepipeline-policy"
   role = aws_iam_role.codepipeline_role.id
+
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [
-      { Effect = "Allow", Action = ["*"], Resource = "*" }
-    ]
+    Statement = [{
+      Effect = "Allow",
+      Action = ["*"],
+      Resource = "*"
+    }]
   })
 }
 
+# ------------------------------
+# CodeDeploy
+# ------------------------------
 resource "aws_codedeploy_app" "app" {
-  name           = "${var.project_name}-codedeploy-app"
+  name             = "${var.project_name}-codedeploy-app"
   compute_platform = "Server"
 }
 
@@ -144,27 +157,32 @@ resource "aws_codedeploy_deployment_group" "group" {
   }
 }
 
-# ✅ FIXED: CodeBuild project - ensure correct working directory
+# ------------------------------
+# CodeBuild Project
+# ------------------------------
 resource "aws_codebuild_project" "build" {
-  name          = "${var.project_name}-build"
-  service_role  = aws_iam_role.codebuild_role.arn
+  name         = "${var.project_name}-build"
+  service_role = aws_iam_role.codebuild_role.arn
 
   artifacts {
     type = "CODEPIPELINE"
   }
 
   environment {
-  compute_type = "BUILD_GENERAL1_SMALL"
-  image        = "aws/codebuild/amazonlinux2-x86_64-standard:5.0"
-  type         = "LINUX_CONTAINER"
-  
-}
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = "aws/codebuild/amazonlinux2-x86_64-standard:5.0"
+    type                        = "LINUX_CONTAINER"
+  }
+
   source {
     type      = "CODEPIPELINE"
     buildspec = "buildspec.yml"
   }
 }
 
+# ------------------------------
+# CodePipeline
+# ------------------------------
 resource "aws_codepipeline" "pipeline" {
   name     = "${var.project_name}-pipeline"
   role_arn = aws_iam_role.codepipeline_role.arn
@@ -176,13 +194,15 @@ resource "aws_codepipeline" "pipeline" {
 
   stage {
     name = "Source"
+
     action {
-      name           = "GitHub_Source"
-      category       = "Source"
-      owner          = "ThirdParty"
-      provider       = "GitHub"
-      version        = "1"
+      name             = "GitHub_Source"
+      category         = "Source"
+      owner            = "ThirdParty"
+      provider         = "GitHub"
+      version          = "1"
       output_artifacts = ["source_output"]
+
       configuration = {
         Owner      = var.github_owner
         Repo       = var.github_repo
@@ -194,6 +214,7 @@ resource "aws_codepipeline" "pipeline" {
 
   stage {
     name = "Build"
+
     action {
       name             = "Build"
       category         = "Build"
@@ -202,6 +223,7 @@ resource "aws_codepipeline" "pipeline" {
       version          = "1"
       input_artifacts  = ["source_output"]
       output_artifacts = ["build_output"]
+
       configuration = {
         ProjectName = aws_codebuild_project.build.name
       }
@@ -210,6 +232,7 @@ resource "aws_codepipeline" "pipeline" {
 
   stage {
     name = "Deploy"
+
     action {
       name            = "Deploy"
       category        = "Deploy"
@@ -217,6 +240,7 @@ resource "aws_codepipeline" "pipeline" {
       provider        = "CodeDeploy"
       version         = "1"
       input_artifacts = ["build_output"]
+
       configuration = {
         ApplicationName     = aws_codedeploy_app.app.name
         DeploymentGroupName = aws_codedeploy_deployment_group.group.deployment_group_name
@@ -225,15 +249,19 @@ resource "aws_codepipeline" "pipeline" {
   }
 }
 
+# ------------------------------
+# EC2 IAM Role + Profile
+# ------------------------------
 resource "aws_iam_role" "ec2_role" {
   name = "${var.project_name}-ec2-role"
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [ {
+    Statement = [{
       Effect = "Allow",
       Principal = { Service = "ec2.amazonaws.com" },
-      Action = "sts:AssumeRole"
-    } ]
+      Action    = "sts:AssumeRole"
+    }]
   })
 }
 
@@ -247,20 +275,18 @@ resource "aws_iam_policy" "ec2_artifact_access_policy" {
 
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion",
-          "s3:ListBucket"
-        ],
-        Resource = [
-          "arn:aws:s3:::${var.bucket_name}",
-          "arn:aws:s3:::${var.bucket_name}/*"
-        ]
-      }
-    ]
+    Statement = [{
+      Effect = "Allow",
+      Action = [
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:ListBucket"
+      ],
+      Resource = [
+        "arn:aws:s3:::${var.bucket_name}",
+        "arn:aws:s3:::${var.bucket_name}/*"
+      ]
+    }]
   })
 }
 
@@ -269,6 +295,9 @@ resource "aws_iam_role_policy_attachment" "ec2_s3_access_attach" {
   policy_arn = aws_iam_policy.ec2_artifact_access_policy.arn
 }
 
+# ------------------------------
+# Security Group
+# ------------------------------
 resource "aws_security_group" "web_sg" {
   name        = "${var.project_name}-sg"
   description = "Allow HTTP & SSH"
@@ -280,12 +309,14 @@ resource "aws_security_group" "web_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -294,6 +325,9 @@ resource "aws_security_group" "web_sg" {
   }
 }
 
+# ------------------------------
+# EC2 Instance
+# ------------------------------
 resource "aws_instance" "web" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
@@ -301,9 +335,11 @@ resource "aws_instance" "web" {
   iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
   vpc_security_group_ids = [aws_security_group.web_sg.id]
   subnet_id              = aws_subnet.public.id
+
   tags = {
     "${var.instance_tag_key}" = var.instance_tag_value
   }
+
   user_data = <<-EOF
     #!/bin/bash
     yum update -y
@@ -316,6 +352,9 @@ resource "aws_instance" "web" {
   EOF
 }
 
+# ------------------------------
+# Outputs
+# ------------------------------
 output "pipeline_name" {
   value = aws_codepipeline.pipeline.name
 }
