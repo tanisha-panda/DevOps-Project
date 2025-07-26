@@ -45,8 +45,8 @@ resource "aws_iam_role_policy" "codepipeline_inline_policy" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect   = "Allow",
-        Action   = [
+        Effect = "Allow",
+        Action = [
           "codepipeline:*",
           "codebuild:*",
           "codedeploy:*",
@@ -142,9 +142,9 @@ resource "aws_codedeploy_deployment_group" "devsecops_group" {
   service_role_arn      = aws_iam_role.codedeploy_role.arn
 
   deployment_style {
-  deployment_option = "WITHOUT_TRAFFIC_CONTROL"
-  deployment_type   = "IN_PLACE"
-}
+    deployment_option = "WITHOUT_TRAFFIC_CONTROL"
+    deployment_type   = "IN_PLACE"
+  }
 
 
   ec2_tag_set {
@@ -177,10 +177,10 @@ resource "aws_codebuild_project" "devsecops_build" {
   }
 
   environment {
-    compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = var.codebuild_image
-    type                        = "LINUX_CONTAINER"
-    privileged_mode             = true
+    compute_type    = "BUILD_GENERAL1_SMALL"
+    image           = var.codebuild_image
+    type            = "LINUX_CONTAINER"
+    privileged_mode = true
   }
 
   source {
@@ -243,12 +243,12 @@ resource "aws_codepipeline" "devsecops_pipeline" {
   stage {
     name = "Deploy"
     action {
-      name             = "Deploy"
-      category         = "Deploy"
-      owner            = "AWS"
-      provider         = "CodeDeploy"
-      input_artifacts  = ["build_output"]
-      version          = "1"
+      name            = "Deploy"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CodeDeploy"
+      input_artifacts = ["build_output"]
+      version         = "1"
       configuration = {
         ApplicationName     = aws_codedeploy_app.devsecops_app.name
         DeploymentGroupName = aws_codedeploy_deployment_group.devsecops_group.deployment_group_name
@@ -303,8 +303,8 @@ resource "aws_iam_role_policy" "codepipeline_inline_policy" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect   = "Allow",
-        Action   = [
+        Effect = "Allow",
+        Action = [
           "codepipeline:*",
           "codebuild:*",
           "codedeploy:*",
@@ -400,9 +400,9 @@ resource "aws_codedeploy_deployment_group" "devsecops_group" {
   service_role_arn      = aws_iam_role.codedeploy_role.arn
 
   deployment_style {
-  deployment_option = "WITHOUT_TRAFFIC_CONTROL"
-  deployment_type   = "IN_PLACE"
-}
+    deployment_option = "WITHOUT_TRAFFIC_CONTROL"
+    deployment_type   = "IN_PLACE"
+  }
 
 
   ec2_tag_set {
@@ -435,10 +435,10 @@ resource "aws_codebuild_project" "devsecops_build" {
   }
 
   environment {
-    compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = var.codebuild_image
-    type                        = "LINUX_CONTAINER"
-    privileged_mode             = true
+    compute_type    = "BUILD_GENERAL1_SMALL"
+    image           = var.codebuild_image
+    type            = "LINUX_CONTAINER"
+    privileged_mode = true
   }
 
   source {
@@ -501,12 +501,12 @@ resource "aws_codepipeline" "devsecops_pipeline" {
   stage {
     name = "Deploy"
     action {
-      name             = "Deploy"
-      category         = "Deploy"
-      owner            = "AWS"
-      provider         = "CodeDeploy"
-      input_artifacts  = ["build_output"]
-      version          = "1"
+      name            = "Deploy"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CodeDeploy"
+      input_artifacts = ["build_output"]
+      version         = "1"
       configuration = {
         ApplicationName     = aws_codedeploy_app.devsecops_app.name
         DeploymentGroupName = aws_codedeploy_deployment_group.devsecops_group.deployment_group_name
