@@ -3,11 +3,12 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "artifact_bucket" {
-  bucket = var.artifact_bucket
+  bucket = var.artifact_bucket_name
 }
 
 resource "aws_s3_bucket_versioning" "artifact_versioning" {
   bucket = aws_s3_bucket.artifact_bucket.id
+
   versioning_configuration {
     status = "Enabled"
   }
@@ -16,6 +17,7 @@ resource "aws_s3_bucket_versioning" "artifact_versioning" {
 data "aws_iam_policy_document" "codepipeline_assume" {
   statement {
     actions = ["sts:AssumeRole"]
+
     principals {
       type        = "Service"
       identifiers = ["codepipeline.amazonaws.com"]
@@ -24,26 +26,20 @@ data "aws_iam_policy_document" "codepipeline_assume" {
 }
 
 resource "aws_iam_role" "codepipeline_role" {
-  name               = "codepipeline_role"
+  name               = "codepipeline-role"
   assume_role_policy = data.aws_iam_policy_document.codepipeline_assume.json
 }
 
 resource "aws_iam_role_policy" "codepipeline_inline_policy" {
-  name = "codepipeline_policy"
+  name = "codepipeline-policy"
   role = aws_iam_role.codepipeline_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Action = [
-          "s3:*",
-          "codebuild:*",
-          "codedeploy:*",
-          "ec2:*",
-          "iam:PassRole"
-        ]
-        Effect   = "Allow"
+        Effect = "Allow"
+        Action = "*"
         Resource = "*"
       }
     ]
@@ -53,6 +49,7 @@ resource "aws_iam_role_policy" "codepipeline_inline_policy" {
 data "aws_iam_policy_document" "codebuild_assume" {
   statement {
     actions = ["sts:AssumeRole"]
+
     principals {
       type        = "Service"
       identifiers = ["codebuild.amazonaws.com"]
@@ -61,7 +58,7 @@ data "aws_iam_policy_document" "codebuild_assume" {
 }
 
 resource "aws_iam_role" "codebuild_role" {
-  name               = "codebuild_role"
+  name               = "codebuild-role"
   assume_role_policy = data.aws_iam_policy_document.codebuild_assume.json
 }
 
@@ -73,6 +70,7 @@ resource "aws_iam_role_policy_attachment" "codebuild_policy_attach" {
 data "aws_iam_policy_document" "codedeploy_assume" {
   statement {
     actions = ["sts:AssumeRole"]
+
     principals {
       type        = "Service"
       identifiers = ["codedeploy.amazonaws.com"]
@@ -81,22 +79,25 @@ data "aws_iam_policy_document" "codedeploy_assume" {
 }
 
 resource "aws_iam_role" "codedeploy_role" {
-  name               = "codedeploy_role"
+  name               = "codedeploy-role"
   assume_role_policy = data.aws_iam_policy_document.codedeploy_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "codedeploy_policy_attach" {
   role       = aws_iam_role.codedeploy_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+  policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployRole"
 }
 
 resource "aws_instance" "app_server" {
-  ami           = var.ami_id
-  instance_type = var.instance_type
-  key_name      = var.key_name
+  ami                         = var.ami_id
+  instance_type               = var.instance_type
+  associate_public_ip_address = true
+  subnet_id                   = var.subnet_id
+  key_name                    = var.key_name
+  vpc_security_group_ids      = [var.security_group_id]
 
   tags = {
-    Name = "DevSecOpsApp"
+    Name = "AppServer"
   }
 }
 
@@ -110,22 +111,22 @@ resource "aws_codedeploy_deployment_group" "devsecops_group" {
   deployment_group_name = "DevSecOpsDeploymentGroup"
   service_role_arn      = aws_iam_role.codedeploy_role.arn
 
-  ec2_tag_set {
-    ec2_tag_filter {
-      key   = "Name"
-      type  = "KEY_AND_VALUE"
-      value = "DevSecOpsApp"
-    }
-  }
-
   deployment_style {
     deployment_option = "WITH_TRAFFIC_CONTROL"
     deployment_type   = "BLUE_GREEN"
   }
 
+  ec2_tag_set {
+    ec2_tag_filter {
+      key   = "Name"
+      type  = "KEY_AND_VALUE"
+      value = "AppServer"
+    }
+  }
+
   blue_green_deployment_config {
     terminate_blue_instances_on_deployment_success {
-      action                           = "TERMINATE"
+      action = "TERMINATE"
       termination_wait_time_in_minutes = 5
     }
 
@@ -143,6 +144,8 @@ resource "aws_codedeploy_deployment_group" "devsecops_group" {
 resource "aws_codebuild_project" "devsecops_build" {
   name          = "DevSecOpsBuild"
   service_role  = aws_iam_role.codebuild_role.arn
+  description   = "Build project for DevSecOps pipeline"
+
   artifacts {
     type = "CODEPIPELINE"
   }
@@ -152,27 +155,18 @@ resource "aws_codebuild_project" "devsecops_build" {
     image                       = "aws/codebuild/standard:5.0"
     type                        = "LINUX_CONTAINER"
     privileged_mode             = true
-    image_pull_credentials_type = "CODEBUILD"
   }
 
   source {
-    type      = "CODEPIPELINE"
-    buildspec = "buildspec.yml"
-  }
-
-  cache {
-    type     = "S3"
-    location = aws_s3_bucket.artifact_bucket.bucket
-  }
-
-  tags = {
-    Environment = "DevSecOps"
+    type            = "CODEPIPELINE"
+    buildspec       = "buildspec.yml"
   }
 }
 
 resource "aws_codepipeline" "devsecops_pipeline" {
   name     = "DevSecOpsPipeline"
   role_arn = aws_iam_role.codepipeline_role.arn
+
   artifact_store {
     location = aws_s3_bucket.artifact_bucket.bucket
     type     = "S3"
@@ -180,25 +174,25 @@ resource "aws_codepipeline" "devsecops_pipeline" {
 
   stage {
     name = "Source"
+
     action {
       name             = "Source"
       category         = "Source"
-      owner            = "ThirdParty"
-      provider         = "GitHub"
+      owner            = "AWS"
+      provider         = "CodeCommit"
       version          = "1"
       output_artifacts = ["source_output"]
 
       configuration = {
-        Owner      = var.github_owner
-        Repo       = var.github_repo
-        Branch     = var.github_branch
-        OAuthToken = var.github_token
+        RepositoryName = var.repo_name
+        BranchName     = var.branch_name
       }
     }
   }
 
   stage {
     name = "Build"
+
     action {
       name             = "Build"
       category         = "Build"
@@ -216,6 +210,7 @@ resource "aws_codepipeline" "devsecops_pipeline" {
 
   stage {
     name = "Deploy"
+
     action {
       name            = "Deploy"
       category        = "Deploy"
