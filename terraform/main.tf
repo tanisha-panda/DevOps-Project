@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "artifact_bucket" {
-  bucket = var.artifact_bucket_name
+  bucket = var.artifact_bucket
 }
 
 resource "aws_s3_bucket_versioning" "artifact_versioning" {
@@ -35,11 +35,11 @@ resource "aws_iam_role_policy" "codepipeline_inline_policy" {
   role = aws_iam_role.codepipeline_role.id
 
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [
       {
-        Effect = "Allow"
-        Action = "*"
+        Action = ["s3:*", "codedeploy:*", "codebuild:*", "iam:PassRole"],
+        Effect = "Allow",
         Resource = "*"
       }
     ]
@@ -64,7 +64,7 @@ resource "aws_iam_role" "codebuild_role" {
 
 resource "aws_iam_role_policy_attachment" "codebuild_policy_attach" {
   role       = aws_iam_role.codebuild_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  policy_arn = "arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess"
 }
 
 data "aws_iam_policy_document" "codedeploy_assume" {
@@ -85,19 +85,19 @@ resource "aws_iam_role" "codedeploy_role" {
 
 resource "aws_iam_role_policy_attachment" "codedeploy_policy_attach" {
   role       = aws_iam_role.codedeploy_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployRole"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
 resource "aws_instance" "app_server" {
-  ami                         = var.ami_id
-  instance_type               = var.instance_type
-  associate_public_ip_address = true
-  subnet_id                   = var.subnet_id
-  key_name                    = var.key_name
-  vpc_security_group_ids      = [var.security_group_id]
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  subnet_id              = var.subnet_id
+  vpc_security_group_ids = [var.security_group_id]
+  key_name               = var.key_name
+  iam_instance_profile   = aws_iam_role.codedeploy_role.name
 
   tags = {
-    Name = "AppServer"
+    Name = "DevSecOpsApp"
   }
 }
 
@@ -108,43 +108,26 @@ resource "aws_codedeploy_app" "devsecops_app" {
 
 resource "aws_codedeploy_deployment_group" "devsecops_group" {
   app_name              = aws_codedeploy_app.devsecops_app.name
-  deployment_group_name = "DevSecOpsDeploymentGroup"
+  deployment_group_name = "DevSecOpsGroup"
   service_role_arn      = aws_iam_role.codedeploy_role.arn
 
   deployment_style {
+    deployment_type = "IN_PLACE"
     deployment_option = "WITH_TRAFFIC_CONTROL"
-    deployment_type   = "BLUE_GREEN"
   }
 
   ec2_tag_set {
     ec2_tag_filter {
       key   = "Name"
       type  = "KEY_AND_VALUE"
-      value = "AppServer"
+      value = "DevSecOpsApp"
     }
-  }
-
-  blue_green_deployment_config {
-    terminate_blue_instances_on_deployment_success {
-      action = "TERMINATE"
-      termination_wait_time_in_minutes = 5
-    }
-
-    deployment_ready_option {
-      action_on_timeout = "CONTINUE_DEPLOYMENT"
-    }
-  }
-
-  auto_rollback_configuration {
-    enabled = true
-    events  = ["DEPLOYMENT_FAILURE"]
   }
 }
 
 resource "aws_codebuild_project" "devsecops_build" {
-  name          = "DevSecOpsBuild"
-  service_role  = aws_iam_role.codebuild_role.arn
-  description   = "Build project for DevSecOps pipeline"
+  name         = "DevSecOpsBuild"
+  service_role = aws_iam_role.codebuild_role.arn
 
   artifacts {
     type = "CODEPIPELINE"
@@ -178,14 +161,16 @@ resource "aws_codepipeline" "devsecops_pipeline" {
     action {
       name             = "Source"
       category         = "Source"
-      owner            = "AWS"
-      provider         = "CodeCommit"
+      owner            = "ThirdParty"
+      provider         = "GitHub"
       version          = "1"
       output_artifacts = ["source_output"]
 
       configuration = {
-        RepositoryName = var.repo_name
-        BranchName     = var.branch_name
+        Owner  = var.github_owner
+        Repo   = var.github_repo
+        Branch = var.github_branch
+        OAuthToken = var.github_oauth_token
       }
     }
   }
